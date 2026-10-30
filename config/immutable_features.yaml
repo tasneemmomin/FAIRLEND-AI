@@ -1,0 +1,46 @@
+# Immutable and Protected Attributes Configuration
+# These attributes are strictly locked and NEVER suggested for modification in counterfactual recourse.
+
+immutable_attributes:
+  - age
+  - gender
+  - religion
+  - caste
+  - social_group
+  - dependents
+  - credit_history_years
+  - residence_type
+  - employment_type
+
+# Actionable attributes with directional monotonicity and plausibility bounds
+actionable_attributes:
+  requested_amount:
+    direction: "decrease"
+    min_ratio: 0.40  # Can reduce loan request down to 40% of original
+    max_ratio: 1.00
+    step: 10000
+    description: "Adjusting requested loan amount"
+
+  tenure_months:
+    direction: "increase"
+    min_months: 12
+    max_months: 84
+    step: 12
+    description: "Extending repayment tenure to lower monthly installment"
+
+  existing_emis:
+    direction: "decrease"
+    min_val: 0.0
+    step: 2000
+    description: "Closing or paying down existing active loans"
+
+  monthly_income:
+    direction: "increase"
+    max_increase_ratio: 1.50 # Adding co-borrower / verified secondary earnings
+    step: 5000
+    description: "Adding verifiable co-applicant income"
+
+  collateral_value:
+    direction: "increase"
+    step: 25000
+    description: "Pledging asset collateral or deposit security"
