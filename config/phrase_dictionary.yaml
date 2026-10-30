@@ -1,0 +1,33 @@
+# Deterministic Plain-English Phrase Dictionary
+# Targeted reading level: Grade 6-8.
+# Strict prohibition of technical jargon (no SHAP, logit, coefficient, feature, vector).
+
+status_headlines:
+  likely_approved: "Likely to be approved"
+  needs_review: "Needs more review"
+  unlikely_approved: "Unlikely to be approved right now"
+
+reasons:
+  foir_low: "Your monthly loan payments take up only {foir}% of your income, which is well within our recommended limit."
+  foir_moderate: "Your monthly loan payments are {foir}% of your income. We usually look for under 45%."
+  foir_high: "Your monthly loan payments are {foir}% of your income, which is higher than our safety guideline of 50%."
+
+  lti_healthy: "The requested loan is {lti} times your yearly earnings, which is manageable on your budget."
+  lti_high: "The loan amount is {lti} times your yearly income. A slightly lower amount would be easier to approve."
+
+  employment_strong: "You have been working in your current role for {months} months, showing solid job stability."
+  employment_short: "You have been in your current job for {months} months. Lenders typically look for at least 6 months of steady work."
+
+  doc_match: "Your uploaded salary slip closely matches the monthly earnings you reported."
+  doc_mismatch: "The income shown on your salary slip differs from what was entered. Checking this discrepancy will help your application."
+
+  credit_established: "You have {years} years of active credit history with good repayment behavior."
+  credit_nascent: "You are new to borrowing, which means our team will review your application by hand."
+
+  collateral_backed: "Providing collateral security makes your loan request safer and easier to approve."
+
+counterfactuals:
+  amount_reduction: "If the loan amount were ₹{suggested_val:,.0f} instead of ₹{current_val:,.0f}, this application would likely be approved."
+  tenure_extension: "If the repayment period were extended to {suggested_val} months instead of {current_val} months, your monthly payments would be lower and this application would likely be approved."
+  emi_reduction: "If you pay down existing monthly loans by ₹{reduction:,.0f}, your total debt burden will drop into the approval zone."
+  income_coapplicant: "If you add a co-borrower to bring total household monthly income to ₹{suggested_val:,.0f}, this loan would likely be approved."

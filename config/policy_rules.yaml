@@ -1,0 +1,111 @@
+# LoanLens Credit Policy Scorecard Configuration
+# Configurable by loan officer or risk committee
+version: "1.0.0"
+policy_name: "Standard Retail Credit Policy"
+
+score_thresholds:
+  approve_threshold: 70
+  review_threshold: 45
+
+# Hard Rules: Any violation forces an immediate rejection or manual escalation
+hard_rules:
+  min_age: 18
+  max_age: 70
+  min_monthly_income: 10000
+  max_foir: 0.60            # FOIR above 60% is an automatic hard rejection
+  min_tenure_months: 6
+  max_tenure_months: 120
+  min_consistency_score: 0.60 # Discrepancy > 40% between declared and verified income
+
+# Scorecard Components (Sum of max weights = 100)
+components:
+  foir:
+    weight: 30
+    tiers:
+      - max_val: 0.35
+        score: 30
+        reason: "Excellent debt-to-income ratio (under 35%)"
+      - max_val: 0.45
+        score: 24
+        reason: "Healthy debt-to-income ratio (35% to 45%)"
+      - max_val: 0.55
+        score: 12
+        reason: "Moderate debt-to-income ratio (45% to 55%)"
+      - max_val: 1.00
+        score: 0
+        reason: "High debt-to-income ratio (above 55%)"
+
+  loan_to_income:
+    # Loan amount divided by annual income (monthly_income * 12)
+    weight: 20
+    tiers:
+      - max_val: 1.5
+        score: 20
+        reason: "Low loan burden relative to annual earnings (under 1.5x)"
+      - max_val: 3.0
+        score: 15
+        reason: "Moderate loan burden relative to annual earnings (1.5x to 3x)"
+      - max_val: 4.5
+        score: 8
+        reason: "Elevated loan burden relative to annual earnings (3x to 4.5x)"
+      - max_val: 10.0
+        score: 0
+        reason: "Very high loan burden relative to annual earnings (above 4.5x)"
+
+  employment_stability:
+    weight: 15
+    tiers:
+      - min_months: 36
+        score: 15
+        reason: "Strong employment stability (over 3 years)"
+      - min_months: 18
+        score: 12
+        reason: "Good employment stability (1.5 to 3 years)"
+      - min_months: 6
+        score: 6
+        reason: "Adequate employment stability (6 to 18 months)"
+      - min_months: 0
+        score: 0
+        reason: "Short employment history (under 6 months)"
+
+  document_consistency:
+    weight: 15
+    tiers:
+      - min_val: 0.95
+        score: 15
+        reason: "High consistency between declared data and verified documents"
+      - min_val: 0.85
+        score: 10
+        reason: "Minor variance between declared and verified documents"
+      - min_val: 0.70
+        score: 5
+        reason: "Noticeable discrepancy between declared income and document extraction"
+      - min_val: 0.00
+        score: 0
+        reason: "Severe discrepancy between declared and document figures"
+
+  credit_history:
+    weight: 10
+    tiers:
+      - min_years: 4.0
+        score: 10
+        reason: "Established positive credit track record (4+ years)"
+      - min_years: 1.5
+        score: 7
+        reason: "Developing credit track record (1.5 to 4 years)"
+      - min_years: 0.0
+        score: 4
+        reason: "New-to-credit or nascent credit profile"
+
+  collateral_or_asset:
+    weight: 10
+    tiers:
+      - min_ltv: 1.0  # Collateral covers 100% or more of loan
+        score: 10
+        reason: "Fully secured loan with adequate collateral backing"
+      - min_ltv: 0.5  # Collateral covers 50% to 100%
+        score: 6
+        reason: "Partially secured loan"
+      - min_ltv: 0.0  # Unsecured
+        score: 3
+        reason: "Unsecured loan request"
