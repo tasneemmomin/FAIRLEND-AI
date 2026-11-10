@@ -277,3 +277,83 @@ def test_nlp_extraction_precision_recall_f1():
     assert recall >= 0.90, f"Recall below 90%: {recall}"
     assert f1 >= 0.90, f"F1-score below 90%: {f1}"
 
+
+# ---------------------------------------------------------------------------
+# Real-world bank statement formats (Cr/Dr suffixes, table layouts, masked
+# reference codes, median salary, mode-EMI) — regression tests
+# ---------------------------------------------------------------------------
+
+HDFC_TABLE_STATEMENT = """HDFC BANK LTD
+Statement from 01-04-2026 to 30-06-2026
+Account Holder: ANITA SEN
+Account Number: ***********4321
+Date        Narration                      Ref          Debit      Credit     Closing Balance
+01-04-2026  OPN BAL                                              0.00 Cr      185,000.00
+05-04-2026  EMPLOYER LTD SALARY CREDIT     NEFT FOLIO            85,000.00    245,000.00
+07-04-2026  EMI HOME LOAN NACH DR          ACH-8891   12,133.20                232,866.80
+05-05-2026  EMPLOYER LTD SALARY CREDIT     NEFT FOLIO            85,000.00    302,866.80
+07-05-2026  EMI HOME LOAN NACH DR          ACH-8902   12,133.20                290,733.60
+05-06-2026  EMPLOYER LTD SALARY CREDIT     NEFT FOLIO            85,000.00    360,733.60
+07-06-2026  EMI HOME LOAN NACH DR          ACH-8903   12,133.20                348,600.40
+Total Credits: 255,000.00 Cr                                Total Debits: 36,399.60 Dr
+Closing Balance : 348,600.40 Cr"""
+
+
+def test_bank_statement_crdr_table_layout():
+    """
+    Real HDFC-style tabular statement:
+    - table header 'Closing Balance' must NOT swallow the next row's numbers
+    - 'OPN BAL' row supplies the opening balance
+    - Cr suffix must not change the value
+    - employer must never be the bank itself
+    """
+    result = parse_document_text(HDFC_TABLE_STATEMENT)
+    b = result["bank_details"]
+    assert b["closing_balance"] == 348600.40
+    assert b["opening_balance"] == 185000
+    assert b["total_credits"] == 255000.00
+    # Reference codes like ACH-8891 must never be read as the EMI amount
+    assert b["detected_monthly_emis"] == 12130
+    assert b["emi_debit_count"] >= 3
+    assert result["employer_name"] is None
+
+
+def test_bank_statement_salary_median_ignores_outliers():
+    """Three recurring salary credits and a one-off bonus: the median monthly
+    salary must stay at the recurring amount."""
+    text = HDFC_TABLE_STATEMENT + """
+05-07-2026  EMPLOYER LTD SALARY CREDIT     FESTIVAL BONUS       185,000.00    480,000.00"""
+    result = parse_document_text(text)
+    b = result["bank_details"]
+    assert b["detected_salary_credits"] == 85000.0
+    assert b["salary_credit_count"] == 4
+
+
+def test_bank_statement_dr_balances_negative():
+    """
+    Overdraft-style statements print 'Dr' suffixes; those are negative values.
+    """
+    text = """ICICI Bank Limited
+Account Holder: RAHUL MISHRA
+Opening Balance: 10,000.00 Dr
+Closing Balance: 4,500.00 Dr"""
+    result = parse_document_text(text)
+    b = result["bank_details"]
+    assert b["opening_balance"] == -10000.0
+    assert b["closing_balance"] == -4500.0
+
+
+def test_masked_aadhaar_card():
+    """e-Aadhaar printouts show the masked UIDAI form 'XXXXXXXX1234'; the
+    extractor must recognise it directly without the full number."""
+    text = """Income Tax Department
+GOVERNMENT OF INDIA
+e-AADHAAR
+Aadhaar: XXXXXXXX1234
+Name: POOJA SHAH
+DOB: 14/08/1994"""
+    result = parse_document_text(text)
+    assert result["identity_details"]["aadhaar_number_masked"] == "XXXX-XXXX-1234"
+    from datetime import date as _date
+    assert result["all_extracted_fields"]["age"] == max(18, min(80, _date.today().year - 1994))
+

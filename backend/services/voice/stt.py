@@ -24,13 +24,18 @@ def get_whisper_model():
             _whisper_model = False
     return _whisper_model
 
-def transcribe_audio_bytes(audio_bytes: bytes, filename: str = "audio.wav") -> Dict[str, Any]:
-    """Transcribes audio bytes locally using faster-whisper."""
+def transcribe_audio_bytes(audio_bytes: bytes, filename: str = "audio.wav", language_hint: Optional[str] = None) -> Dict[str, Any]:
+    """Transcribes audio bytes locally using faster-whisper.
+
+    `language_hint` is an ISO-639-1 code (en/hi/mr). When provided, the model is
+    forced to that language (selected-language enforcement); when None it
+    auto-detects. Reported `language` in the response always reflects what the
+    model actually used, so the UI can surface any mismatch honestly."""
     model = get_whisper_model()
     if not model:
         return {
             "text": "",
-            "language": "en",
+            "language": language_hint or "en",
             "confidence": 0.0,
             "error": "Local speech recognition model not initialized. Please use typed input fallback."
         }
@@ -45,7 +50,7 @@ def transcribe_audio_bytes(audio_bytes: bytes, filename: str = "audio.wav") -> D
         segments, info = model.transcribe(
             tmp_path,
             beam_size=3,
-            language=None,  # Auto-detect language (supports English, Hindi, Marathi)
+            language=language_hint,  # explicit selection when enforced, auto-detect otherwise
             task="transcribe"
         )
         full_text = " ".join([segment.text.strip() for segment in segments]).strip()

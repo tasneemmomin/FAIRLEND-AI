@@ -41,9 +41,10 @@
   --fl-red-text: #991B1B;
   --fl-red-border: #FECACA;
 
-  /* Typography */
-  --fl-font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --fl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Typography — IBM Plex superfamily across scripts (Latin + Devanagari) */
+  --fl-font-serif: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', Georgia, sans-serif;
+  --fl-font-sans: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fl-font-figure: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 
   /* 8px Spatial System */
   --fl-space-1: 8px;
@@ -473,9 +474,18 @@
   gap: 6px;
 }
 
+/* Extracted-entity mapping grid in the landing voice preview: four columns on
+   desktop, two on phones (four min-content columns overflow a 390px viewport). */
+.fl-entity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
 .fl-preview-vitals {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   background: #F8FAFC;
   padding: 10px;
@@ -917,6 +927,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+}
+
+/* Wide card spans two columns on desktop; collapses to one column on mobile
+   (an inline `span 2` would create an implicit column and overflow 390px). */
+.fl-stat-card-wide {
+  grid-column: span 2;
 }
 
 .fl-stat-card-title {
@@ -1141,8 +1158,19 @@
   .fl-analytics-grid {
     grid-template-columns: 1fr;
   }
+  .fl-stat-card-wide {
+    grid-column: auto;
+  }
+  .fl-entity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .fl-footer-top {
     flex-direction: column;
+    align-items: stretch;
+  }
+  .fl-footer-links {
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 }
 

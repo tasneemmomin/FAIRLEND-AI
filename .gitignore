@@ -12,3 +12,6 @@ DEMO_ACCOUNTS.md
 verification/
 
 data/models/
+
+# Runtime data: SQLite DB, upload-encryption key, encrypted applicant documents (PII)
+data/

@@ -218,4 +218,161 @@ export interface MissingFieldDefinition {
   default_value?: any;
 }
 
+// ==========================================
+// Financial Stress Simulator types
+// ==========================================
+
+export interface StressDataSources {
+  [key: string]: string;
+}
+
+export interface StressInputs {
+  monthly_income: number;
+  existing_emis: number;
+  monthly_expenses: number;
+  requested_amount: number;
+  tenure_months: number;
+  proposed_emi: number;
+  interest_rate_pct: number;
+  data_sources: StressDataSources;
+  insufficient_income_data: boolean;
+}
+
+export interface StressScenarioResult {
+  scenario_name: string;
+  net_income: number;
+  existing_emis: number;
+  monthly_expenses: number;
+  proposed_emi: number;
+  disposable_income: number;
+  remaining_balance: number;
+  total_emi_burden: number;
+  expense_burden_ratio?: number;
+  foir: number;
+  stress_indicator: string;
+  stress_label: string;
+  stress_color: string;
+  explanation: string;
+  variation_pct?: number;
+  income_reduction_pct?: number;
+  expense_increase_pct?: number;
+  additional_obligation?: number;
+  obligation_type?: string;
+  hypothetical?: boolean;
+  custom_inputs?: {
+    income_reduction_pct: number;
+    expense_increase_pct: number;
+    additional_obligation: number;
+    proposed_emi: number;
+  };
+}
+
+export interface StressMetrics {
+  disposable_income: number;
+  remaining_balance: number;
+  total_emi_burden: number;
+  expense_burden_ratio: number;
+  foir: number;
+  foir_risk_band: string;
+  stress_indicator: string;
+  stress_label: string;
+  stress_color: string;
+  stress_description: string;
+  explanation: string;
+  overall_assessment: string;
+  key_factors: string[];
+  calc_version: string;
+  insufficient_income_data: boolean;
+}
+
+export interface StressBaselineResponse {
+  application_id: string;
+  calc_version: string;
+  inputs: StressInputs;
+  metrics: StressMetrics;
+}
+
+export interface StressFullResponse {
+  application_id: string;
+  calc_version: string;
+  config_version: number;
+  inputs: StressInputs;
+  scenario_a_current: StressScenarioResult;
+  scenario_b_income_reduction: StressScenarioResult[];
+  scenario_c_expense_increase: StressScenarioResult[];
+  scenario_d_additional_obligations: StressScenarioResult[];
+  scenario_e_combined: StressScenarioResult[];
+  worst_case_summary: {
+    worst_scenario_name: string;
+    worst_remaining_balance: number;
+    baseline_remaining_balance: number;
+    worst_relative_to_baseline: number;
+  };
+  default_projection: StressProjectionResponse;
+  disclaimer: string;
+}
+
+export interface StressProjectionMonth {
+  month: number;
+  income: number;
+  expenses: number;
+  existing_emis: number;
+  proposed_emi: number;
+  total_outflow: number;
+  remaining_balance: number;
+  cumulative_buffer: number;
+  stress_indicator: string;
+  stress_label: string;
+  stress_color: string;
+  foir: number;
+}
+
+export interface StressProjectionResponse {
+  projection_months: number;
+  assumptions: {
+    monthly_income_change_pct: number;
+    expense_growth_pct: number;
+    additional_obligation: number;
+  };
+  monthly: StressProjectionMonth[];
+  months_to_stress: number | null;
+  final_cumulative_buffer: number;
+  insufficient_data: boolean;
+  explanation: string;
+  disclaimer: string;
+  hypothetical?: boolean;
+}
+
+export interface StressCustomRequest {
+  income_reduction_pct: number;
+  expense_increase_pct: number;
+  additional_obligation: number;
+  proposed_emi?: number | null;
+}
+
+export interface StressProjectionRequest {
+  monthly_income_change_pct: number;
+  expense_growth_pct: number;
+  additional_obligation: number;
+  months: number;
+}
+
+export interface StressReportResponse {
+  report_id: string;
+  generated_at: string;
+  application_id: string;
+  applicant_name: string;
+  loan_terms: Record<string, number>;
+  data_sources: StressDataSources;
+  calc_version: string;
+  baseline: StressScenarioResult;
+  income_reduction_scenarios: StressScenarioResult[];
+  expense_increase_scenarios: StressScenarioResult[];
+  additional_obligation_scenarios: StressScenarioResult[];
+  combined_scenarios: StressScenarioResult[];
+  worst_case_summary: StressFullResponse["worst_case_summary"];
+  monthly_projection: StressProjectionResponse;
+  important_disclaimer: string;
+}
+
 

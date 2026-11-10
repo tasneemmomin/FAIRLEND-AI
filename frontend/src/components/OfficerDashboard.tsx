@@ -15,6 +15,7 @@ import {
   logoutUser
 } from "../api";
 import { OfficerAppSummary, FairnessMetrics } from "../types";
+import { OfficerStressPanel } from "./FinancialStressSimulator";
 
 export const OfficerDashboard: React.FC = () => {
   // Officer Authentication state backed by backend JWT verification
@@ -131,6 +132,10 @@ export const OfficerDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    // Data must not be fetched before the officer is signed in: the component
+    // stays mounted across the login screen, so without this guard the queue
+    // would stay empty until a manual reload or a websocket event.
+    if (!isAuthenticated) return;
     loadData();
     // Connect WebSocket for real-time updates
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -150,7 +155,7 @@ export const OfficerDashboard: React.FC = () => {
     };
 
     return () => ws.close();
-  }, [statusFilter, selectedAppId]);
+  }, [isAuthenticated, statusFilter, selectedAppId]);
 
   const handleSelectApp = async (id: string) => {
     setSelectedAppId(id);
@@ -508,7 +513,7 @@ export const OfficerDashboard: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 flex-wrap">
         <button
           onClick={() => setActiveTab("queue")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
@@ -720,6 +725,9 @@ export const OfficerDashboard: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Financial Stress Analysis (Advisory) */}
+                <OfficerStressPanel applicationId={appDetail.id} />
 
                 {/* Counterfactual AI & Recourse Sensitivity Analysis */}
                 <div className="space-y-3 bg-teal-50/50 border border-teal-200 p-4 rounded-xl">

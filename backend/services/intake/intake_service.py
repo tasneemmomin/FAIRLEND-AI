@@ -58,6 +58,7 @@ def process_application_intake(
         employment_duration_months=req.employment_duration_months,
         monthly_income=req.monthly_income,
         existing_emis=req.existing_emis,
+        monthly_expenses=req.monthly_expenses,
         requested_amount=req.requested_amount,
         tenure_months=req.tenure_months,
         loan_purpose=req.loan_purpose,

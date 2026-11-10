@@ -1,5 +1,6 @@
 import re
 import io
+from datetime import date
 from typing import Dict, Any, Optional, List, Tuple
 import pdfplumber
 from PIL import Image
@@ -20,6 +21,21 @@ def _clean_currency(raw: str) -> Optional[float]:
         return val if val >= 0 else None
     except ValueError:
         return None
+
+
+def _clean_currency_signed(raw: str) -> Optional[float]:
+    """Like _clean_currency, but a trailing 'Dr'/debit marker makes the value negative.
+    Real Indian statements annotate balances as '45,000.00 Cr' / '1,500.00 Dr'.
+    """
+    suffix = raw.strip().lower()
+    val = _clean_currency(raw)
+    if val is None:
+        return None
+    # Only treat the trailing token after the digits as the sign marker.
+    tail = re.search(r"(Cr|Dr)\s*$", raw.strip(), re.IGNORECASE)
+    if tail and tail.group(1).lower() == "dr":
+        return -val
+    return val
 
 def _extract_number(pattern: str, text: str) -> Optional[float]:
     match = re.search(pattern, text, re.IGNORECASE)
@@ -425,34 +441,151 @@ def parse_document_text(text: str, tables: list = None) -> Dict[str, Any]:
         bank_details["account_number_masked"] = mask_identifier(raw_acct)
         field_confidence["account_number_masked"] = "high"
 
-    # Balances
-    bank_details["opening_balance"] = _extract_number(r"(?:Opening\s+Balance)\s*[:\-]?\s*(?:(?:Rs\.?|INR|\u20B9)\s*)?([\d\,]+(?:\.\d{1,2})?)", text)
-    bank_details["closing_balance"] = _extract_number(r"(?:Closing|Available|Ending)\s+Balance\s*[:\-]?\s*(?:(?:Rs\.?|INR|\u20B9)\s*)?([\d\,]+(?:\.\d{1,2})?)", text)
-    bank_details["total_credits"] = _extract_number(r"Total\s+Credits?\s*[:\-]?\s*(?:(?:Rs\.?|INR|\u20B9)\s*)?([\d\,]+(?:\.\d{1,2})?)", text)
-    bank_details["total_debits"] = _extract_number(r"Total\s+Debits?\s*[:\-]?\s*(?:(?:Rs\.?|INR|\u20B9)\s*)?([\d\,]+(?:\.\d{1,2})?)", text)
+    # Balances — handle both "label: value" text layouts and real-world suffixes
+    # like "45,000.00 Cr" / "12,000.00 Dr" (negative). If the labels are absent
+    # (table-only statement PDFs), fall back to the Balance column row values.
+    _NUM_CRDR = r"([\d\,]+(?:\.\d{1,2})?)[\s\.]?\s*(Cr|Dr|CR|DR)?\.?"
 
-    # Detected Salary Credit in bank statement
-    sal_credit_match = re.search(r"(?:SALARY|SAL\/|NEFT\s+SALARY|PAYROLL)[^\n\r]*?(?:Rs\.?|INR|\u20B9)?\s*([\d\,]+(?:\.\d{1,2})?)", text, re.IGNORECASE)
-    if sal_credit_match:
-        val = _clean_currency(sal_credit_match.group(1))
-        if val and val > 5000:
-            bank_details["detected_salary_credits"] = val
-            field_confidence["detected_salary_credits"] = "high"
-            if not monthly_salary:
-                monthly_salary = val
+    def labeled_value(label_variants: List[str]) -> Optional[float]:
+        # Gap is confined to the SAME line and cannot contain digits or dashes,
+        # so a table header like "Closing Balance" followed by a newline + a
+        # transaction row ("01-04-2026 ...") can never be mistaken for a value.
+        for lbl in label_variants:
+            pat = (r"(?:" + lbl + r")[^\n\r0-9\-]{0,16}(?:(?:Rs\.?|INR|\u20B9)\s*)?" + _NUM_CRDR)
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                marker = (m.group(2) or "").strip()
+                val = _clean_currency_signed(f"{m.group(1)} {marker}".strip())
+                if val is not None:
+                    return val
+        return None
 
-    # Detected Recurring Loan EMIs in bank statement
-    emi_matches = re.findall(r"(?:EMI|LOAN|NACH|ACH|ECS)[^\n\r]*?(?:Rs\.?|INR|\u20B9)?\s*([\d\,]+(?:\.\d{1,2})?)", text, re.IGNORECASE)
-    if emi_matches:
-        emi_vals = [_clean_currency(m) for m in emi_matches if _clean_currency(m) and 500 <= _clean_currency(m) <= 200000]
-        if emi_vals:
-            bank_details["detected_monthly_emis"] = round(sum(emi_vals), 2)
-            field_confidence["detected_monthly_emis"] = "medium"
+    def line_last_amount(label_re: str) -> Optional[float]:
+        """Amount from rows like '01-04-2026  OPN BAL  ... 185,000.00' where the
+        balance is the LAST grouped/decimal monetary token on the line."""
+        for ln in text.splitlines():
+            if re.search(label_re, ln, re.IGNORECASE):
+                toks = re.findall(
+                    r"(?<![\d.,])(?:\d{1,3}(?:\,\d{2,3})+(?:\.\d{1,2})?|\d+\.\d{2})(?![\d.,])", ln)
+                for tok in reversed(toks):
+                    v = _clean_currency_signed(tok)
+                    if v is not None:
+                        return v
+        return None
 
-    # Statement Period
+    opening_labeled = labeled_value([r"Opening\s+Balance", r"Opening\s+Bal\.?", r"BAL\.?\s+B\/F", r"BALANCE\s+B\/F"])
+    closing_labeled = labeled_value([r"Closing\s+Balance", r"Closing\s+Bal\.?", r"Closing\s+\w{1,6}\s*Balance", r"CLBAL", r"Available\s+Balance", r"Ending\s+Balance", r"CLOSING\s+ABMBAL"])
+    bank_details["opening_balance"] = opening_labeled
+    bank_details["closing_balance"] = closing_labeled
+    bank_details["total_credits"] = labeled_value([r"Total\s+Credits?", r"Total\s+Credit\s*(?:Amount)?"])
+    bank_details["total_debits"] = labeled_value([r"Total\s+Debits?", r"Total\s+Debit\s*(?:Amount)?"])
+
+    # Row-style statements (SBI/HDFC passbooks print "OPN BAL" without a
+    # label-value layout): the balance sits at the end of the opening row.
+    if bank_details["opening_balance"] is None:
+        opn_row = line_last_amount(r"\bOPN\.?\s*BAL(?:ANCE)?\b")
+        if opn_row is None:
+            opn_row = line_last_amount(r"\bB\/F\b")
+        if opn_row is not None:
+            bank_details["opening_balance"] = opn_row
+            field_confidence["opening_balance"] = "medium"
+
+    if (bank_details["opening_balance"] is None or bank_details["closing_balance"] is None) and tables:
+        for tbl in tables:
+            # Locate a balance column in the header row, e.g. "Closing Balance"
+            balance_idx = None
+            for row in tbl:
+                for ci, cell in enumerate(row):
+                    if cell and re.search(r"(closing|opening|balance)\s*bal", str(cell).lower()):
+                        balance_idx = ci
+                        break
+                if balance_idx is not None:
+                    break
+            if balance_idx is None:
+                continue
+            data_rows = [r for r in tbl if r[balance_idx] is not None]
+            if len(data_rows) < 2:
+                continue
+            def cell_val(cell) -> Optional[float]:
+                return _clean_currency_signed(str(cell).strip())
+            vals = [cell_val(r[balance_idx]) for r in data_rows]
+            vals = [v for v in vals if v is not None]
+            if not vals:
+                continue
+            if bank_details["opening_balance"] is None:
+                bank_details["opening_balance"] = vals[0]
+                field_confidence["opening_balance"] = "medium"
+            if bank_details["closing_balance"] is None:
+                bank_details["closing_balance"] = vals[-1]
+                field_confidence["closing_balance"] = "medium"
+            break
+
+    # Detected Salary Credits in bank statement: parse per LINE, prefer
+    # comma-grouped / decimal tokens (so narration/reference numbers can never
+    # be mistaken for money), take the first in-range credit per line, then use
+    # the MEDIAN across months as the monthly salary estimate.
+    _amount_tokens = re.compile(
+        r"(?<![\d.,])(?:\d{1,3}(?:\,\d{2,3})+(?:\.\d{1,2})?|\d+\.\d{2})(?![\d.,])")
+    _plain_tokens = re.compile(r"(?<![\d.\-])(\d+)(?![\d.])")
+
+    def line_amounts(ln: str, lo: float, hi: float) -> List[float]:
+        toks = _amount_tokens.findall(ln) or _plain_tokens.findall(ln)
+        vals = []
+        for tok in toks:
+            v = _clean_currency(tok)
+            if v is not None and lo <= v <= hi:
+                vals.append(v)
+        return vals
+
+    salary_kw = re.compile(
+        r"\b(?:SAL(?:ARY)?\s*CR(?:EDIT)?|SALARY(?:\s*CREDIT)?|PAYROLL|STIPEND|WAGES)\b", re.IGNORECASE)
+    sal_credit_vals = []
+    for ln in text.splitlines():
+        if not salary_kw.search(ln):
+            continue
+        for v in line_amounts(ln, 5000, 1000000):
+            sal_credit_vals.append(v)
+            break
+    if sal_credit_vals:
+        sal_credit_vals.sort()
+        n = len(sal_credit_vals)
+        median_val = sal_credit_vals[n // 2] if n % 2 else (sal_credit_vals[n // 2 - 1] + sal_credit_vals[n // 2]) / 2
+        bank_details["detected_salary_credits"] = median_val
+        bank_details["salary_credit_count"] = n
+        field_confidence["detected_salary_credits"] = "high" if n >= 2 else "medium"
+        if not monthly_salary:
+            monthly_salary = median_val
+
+    # Detected Recurring Loan EMIs: NACH/auto-debit lines repeat monthly, so the
+    # correct monthly obligation is the MOST COMMON amount (mode), never their
+    # sum. Parsed per line with decimal/comma preference, so reference codes
+    # like "ACH-8891", account digits, or dates (07-04-2026) are never amounts.
+    from collections import Counter
+    emi_kw = re.compile(
+        r"\b(?:EMI|NACH|ACH|ECS|AUTO\s+DEBIT|AUTO\s+PAY|STANDING\s+INSTRUCTION)\b", re.IGNORECASE)
+    emi_vals = []
+    for ln in text.splitlines():
+        if not emi_kw.search(ln):
+            continue
+        for v in line_amounts(ln, 500, 200000):
+            # Round to the nearest 10 to absorb duplicate decimals
+            emi_vals.append(round(v, -1))
+    if emi_vals:
+        counts = Counter(emi_vals)
+        common_val, common_count = counts.most_common(1)[0]
+        occurrences = sum(1 for v in emi_vals if abs(v - common_val) < 1)
+        bank_details["detected_monthly_emis"] = common_val
+        bank_details["emi_debit_count"] = occurrences
+        field_confidence["detected_monthly_emis"] = "high" if occurrences >= 2 else "medium"
+
+    # Statement Period — labelled headers and free-form "from … to …" layouts
     period_m = re.search(r"(?:Statement\s+Period|Period)\s*[:\-]?\s*([0-9A-Za-z\s\-\/\,]+(?:to|–|-)[0-9A-Za-z\s\-\/\,]+)", text, re.IGNORECASE)
-    if period_m:
-        bank_details["statement_period"] = period_m.group(1).strip()[:50]
+    if not period_m:
+        period_from = re.search(r"(?:Statement|For\s+the\s+period)\s+(?:from\s+)?([0-9]{1,2}[\-\/\.][0-9]{1,2}[\-\/\.][0-9]{2,4})\s*(?:to|-|–)\s*([0-9]{1,2}[\-\/\.][0-9]{1,2}[\-\/\.][0-9]{2,4})", text, re.IGNORECASE)
+        if period_from:
+            bank_details["statement_period"] = f"{period_from.group(1)} to {period_from.group(2)}"
+    else:
+        bank_details["statement_period"] = period_m.group(1).strip()[:60]
 
     # -------------------------------------------------------------------------
     # 3. Identity Documents (PAN & Aadhaar)
@@ -476,12 +609,19 @@ def parse_document_text(text: str, tables: list = None) -> Dict[str, Any]:
             if pan_name_m:
                 salary_details["employee_name"] = pan_name_m.group(1).strip()
 
-    # Aadhaar number extraction & UIDAI-compliant masking
+    # Aadhaar number extraction & UIDAI-compliant masking.
+    # Handles: full "1234 5678 9012", compact "123456789012", and the masked
+    # "XXXXXXXX1234" form that UIDAI actually prints on physical cards / e-Aadhaar.
     aadhaar_m = re.search(r"\b(\d{4}\s\d{4}\s\d{4}|\d{12})\b", text)
     if aadhaar_m:
         raw_aadhaar = aadhaar_m.group(1).replace(" ", "")
         identity_details["aadhaar_number_masked"] = f"XXXX-XXXX-{raw_aadhaar[-4:]}"
         field_confidence["aadhaar_number_masked"] = "high"
+    else:
+        aadhaar_masked_m = re.search(r"\b([Xx\*]{8}[ \-]?)(\d{4})\b", text)
+        if aadhaar_masked_m:
+            identity_details["aadhaar_number_masked"] = f"XXXX-XXXX-{aadhaar_masked_m.group(2)}"
+            field_confidence["aadhaar_number_masked"] = "high (already masked on document)"
 
     # Date of Birth
     dob_m = re.search(r"(?:DOB|Date\s+of\s+Birth|Birth\s+Date|Year\s+of\s+Birth)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4})", text, re.IGNORECASE)
@@ -498,6 +638,17 @@ def parse_document_text(text: str, tables: list = None) -> Dict[str, Any]:
     # -------------------------------------------------------------------------
     # 4. Consolidated Flat Extracted Fields (For Editable UI Form)
     # -------------------------------------------------------------------------
+    # A bank statement's header line is the BANK, not an employer — never
+    # report "HDFC BANK LTD" as the applicant's employer. Only a genuinely
+    # labelled employer field survives.
+    if doc_type == "bank_statement" and salary_details["employer_name"]:
+        emp_l = salary_details["employer_name"].lower().strip()
+        bank_name_l = (bank_details.get("bank_name") or "").lower().strip()
+        if ("bank" in emp_l
+                or (bank_name_l and (emp_l == bank_name_l or bank_name_l in emp_l))):
+            salary_details["employer_name"] = None
+            field_confidence.pop("employer_name", None)
+
     extracted_name = salary_details["employee_name"] or bank_details["account_holder_name"]
 
     all_extracted_fields: Dict[str, Any] = {}
@@ -520,12 +671,12 @@ def parse_document_text(text: str, tables: list = None) -> Dict[str, Any]:
     if bank_details["detected_monthly_emis"]:
         all_extracted_fields["existing_emis"] = bank_details["detected_monthly_emis"]
     if identity_details["dob"]:
-        # Compute age estimate if 4-digit year present
+        # Compute age estimate if 4-digit year present (uses the current year, not a hardcoded one)
         try:
             year_match = re.search(r"\b(19\d\d|200\d)\b", identity_details["dob"])
             if year_match:
                 birth_year = int(year_match.group(1))
-                all_extracted_fields["age"] = max(18, min(80, 2026 - birth_year))
+                all_extracted_fields["age"] = max(18, min(80, date.today().year - birth_year))
         except Exception:
             pass
 

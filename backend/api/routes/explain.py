@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.db.database import get_db
-from backend.db.models import Application
+from backend.db.models import Application, User
 from backend.core.security import decrypt_field
+from backend.core.auth import get_current_user
 from backend.services.plain_english.translator import plain_english_translator, calculate_flesch_kincaid_grade
 from backend.services.counterfactual.search import find_counterfactuals
 from backend.services.explain.attributions import compute_feature_attributions
@@ -10,10 +11,21 @@ from backend.services.explain.attributions import compute_feature_attributions
 router = APIRouter(prefix="/explain", tags=["Explainability Engine"])
 
 @router.get("/{application_id}")
-def get_application_explanation(application_id: str, db: Session = Depends(get_db)):
+def get_application_explanation(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     app = db.query(Application).filter(Application.id == application_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    # Role-based access control: only the owning applicant or an officer may view
+    if current_user.role == "applicant" and app.applicant_user_id and app.applicant_user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access forbidden: You do not have permission to view this application."
+        )
 
     snapshot = app.feature_snapshots[0] if app.feature_snapshots else None
     feat_vec = snapshot.feature_vector if snapshot else {}

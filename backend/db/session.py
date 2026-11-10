@@ -12,11 +12,6 @@ DEMO_OFFICER_PASSWORD = "Officer@123"
 DEMO_OFFICER_NAME = "P. S. Sharma (Senior Credit Underwriter)"
 DEMO_OFFICER_PHONE = "+91 98765 00001"
 
-DEMO_APPLICANT_EMAIL = "applicant@fairlendai.com"
-DEMO_APPLICANT_PASSWORD = "Applicant@123"
-DEMO_APPLICANT_NAME = "Pooja Nair"
-DEMO_APPLICANT_PHONE = "+91 98765 43210"
-
 def _run_sqlite_migrations():
     """Add new columns to existing SQLite tables if not already present."""
     inspector = inspect(engine)
@@ -26,6 +21,11 @@ def _run_sqlite_migrations():
         if "applicant_user_id" not in columns:
             with engine.connect() as conn:
                 conn.execute(text("ALTER TABLE applications ADD COLUMN applicant_user_id VARCHAR(36) REFERENCES users(id)"))
+                conn.commit()
+        # Financial Stress Simulator: optional verified monthly expenses
+        if "monthly_expenses" not in columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE applications ADD COLUMN monthly_expenses FLOAT"))
                 conn.commit()
 
 def seed_demo_accounts(db=None):
@@ -67,33 +67,8 @@ def seed_demo_accounts(db=None):
             )
             db.add(legacy_officer)
 
-        # 2. Seed Demo Applicant: applicant@fairlendai.com / Applicant@123
-        demo_applicant = db.query(User).filter(User.email == DEMO_APPLICANT_EMAIL.lower()).first()
-        if not demo_applicant:
-            demo_applicant = User(
-                email=DEMO_APPLICANT_EMAIL.lower(),
-                password_hash=hash_password(DEMO_APPLICANT_PASSWORD),
-                full_name=DEMO_APPLICANT_NAME,
-                phone=DEMO_APPLICANT_PHONE,
-                role="applicant",
-                is_active=True
-            )
-            db.add(demo_applicant)
-        else:
-            demo_applicant.password_hash = hash_password(DEMO_APPLICANT_PASSWORD)
-
-        # Also seed pooja.nair@example.com for existing profile compatibility
-        pooja = db.query(User).filter(User.email == "pooja.nair@example.com").first()
-        if not pooja:
-            pooja = User(
-                email="pooja.nair@example.com",
-                password_hash=hash_password("Applicant@123"),
-                full_name="Pooja Nair",
-                phone="+91 98765 43210",
-                role="applicant",
-                is_active=True
-            )
-            db.add(pooja)
+        # Applicants are never seeded: every applicant signs up through
+        # /api/auth/register and owns their own credentials (DPDP Act 2023).
 
         db.commit()
     finally:

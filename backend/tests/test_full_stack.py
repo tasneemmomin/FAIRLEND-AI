@@ -48,7 +48,15 @@ def test_api_route_registrations():
         "/api/voice/turn",
         "/api/explain/{application_id}",
         "/api/fairness/metrics",
-        "/api/privacy/disclosures"
+        "/api/privacy/disclosures",
+        # Financial Stress Early-Warning & Future Scenario Intelligence
+        "/api/stress/applications/{application_id}/baseline",
+        "/api/stress/applications/{application_id}/scenarios",
+        "/api/stress/applications/{application_id}/custom",
+        "/api/stress/applications/{application_id}/projection",
+        "/api/stress/applications/{application_id}/report",
+        "/api/stress/applications/{application_id}/assessment",
+        "/api/stress/config"
     ]
     for exp in expected:
         assert exp in route_paths, f"Expected API route {exp} not registered in FastAPI app"

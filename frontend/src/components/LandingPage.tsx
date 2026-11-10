@@ -194,6 +194,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 Smarter Credit Assessment. Clearer Decisions.
               </h1>
 
+              <p className="fl-hero-subtext">
+                Explainable, voice-enabled credit assessment built for India —
+                intake in English, हिन्दी or मराठी, transparent policy scorecards,
+                document intelligence, fairness monitoring and financial stress
+                scenario analysis. Every recommendation is explained; the human
+                loan officer always makes the final decision.
+              </p>
+
               <div className="fl-hero-buttons">
                 <button
                   type="button"
@@ -286,7 +294,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     </div>
 
                     {/* Extracted Slots Chips */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "6px", fontSize: "11px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "6px", fontSize: "11px", minWidth: 0 }}>
                       <div style={{ background: "#ffffff", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--fl-border)" }}>
                         <span style={{ color: "var(--fl-text-secondary)", display: "block" }}>Requested Loan:</span>
                         <strong style={{ color: "var(--fl-teal)", fontSize: "13px" }}>{currentSim.amount}</strong>
@@ -472,7 +480,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             </div>
 
             {/* Extracted Entity Mapping */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "16px" }}>
+            <div className="fl-entity-grid">
               <div style={{ background: "#ffffff", padding: "10px", borderRadius: "8px", border: "1px solid var(--fl-border)", textAlign: "center" }}>
                 <span style={{ fontSize: "11px", color: "var(--fl-text-secondary)", display: "block" }}>Extracted Loan</span>
                 <strong style={{ fontSize: "14px", color: "var(--fl-teal)" }}>{currentSim.amount}</strong>
@@ -886,7 +894,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             </div>
 
             {/* Confusion Matrix Card */}
-            <div className="fl-stat-card" style={{ gridColumn: "span 2" }}>
+            <div className="fl-stat-card fl-stat-card-wide">
               <span className="fl-stat-card-title">Cumulative Evaluation Matrix (Verified Officer Labels)</span>
               <div className="fl-confusion-matrix-box">
                 <div className="fl-cm-cell">

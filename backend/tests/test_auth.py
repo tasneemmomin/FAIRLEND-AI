@@ -123,12 +123,21 @@ def test_field_validation_on_registration():
 
 def test_role_based_access_control():
     """Verify applicants cannot access officer routes and officers cannot access applicant routes."""
-    # 1. Login as applicant
+    # 1. Register + login a real applicant (no seeded demo applicant exists)
+    reg_email = f"rbac_{uuid.uuid4().hex[:8]}@example.com"
+    reg_res = client.post("/api/auth/register", json={
+        "full_name": "RBAC Test Applicant",
+        "email": reg_email,
+        "phone": "9876500000",
+        "password": "RbacPass123"
+    })
+    assert reg_res.status_code in (200, 201), reg_res.text
     app_res = client.post("/api/auth/login", json={
-        "email": "applicant@fairlendai.com",
-        "password": "Applicant@123",
+        "email": reg_email,
+        "password": "RbacPass123",
         "expected_role": "applicant"
     })
+    assert app_res.status_code == 200, app_res.text
     applicant_token = app_res.json()["access_token"]
 
     # 2. Login as officer

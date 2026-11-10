@@ -74,6 +74,30 @@ Because a statistical model cannot train on zero samples, LoanLens implements a 
 
 ---
 
+### 6. Financial Stress Early-Warning & Future Scenario Intelligence *(new)*
+
+Extends affordability assessment beyond the applicant's *current* situation to
+transparent what-if exploration — income reduction (5–20%), expense inflation
+(5–20%), additional obligations, combined shocks and fully customised scenarios,
+plus an assumption-based 12-month cash-flow projection.
+
+- **Applicant Portal** → *"Financial Stress Simulator"* mode and *"Understand Your
+  Future Financial Position"* after submission: interactive sliders, colour-coded
+  stress indicators, scenario comparison table, monthly projection chart and a
+  downloadable scenario report.
+- **Officer Portal** → *"Financial Stress Analysis (Advisory)"* panel inside every
+  application inspector: baseline metrics, worst-case summary, all scenarios,
+  12-month projection and an audit-logged advisory assessment box.
+- **Administrator configuration** → versioned, append-only simulation config
+  (thresholds, simulation ranges, interest rate, expense assumption) via
+  `/api/stress/config` with full history.
+- **Strictly deterministic**: same inputs always produce the same outputs;
+  explanations come from templates over real calculated values; hypothetical
+  values never modify actual application records; the projections are labelled
+  as *not* forecasts. See `docs/STRESS_SIMULATION.md`.
+
+---
+
 ## 🧪 Verification & Test Suite
 
 All system modules are thoroughly tested with 100% passing tests:

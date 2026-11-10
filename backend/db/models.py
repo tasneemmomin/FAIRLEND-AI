@@ -45,6 +45,8 @@ class Application(Base):
     employment_duration_months = Column(Integer, nullable=False, default=12)
     monthly_income = Column(Float, nullable=False)
     existing_emis = Column(Float, nullable=False, default=0.0)
+    # Optional verified monthly household expenses (None = estimate assumption used by stress simulator)
+    monthly_expenses = Column(Float, nullable=True, default=None)
     requested_amount = Column(Float, nullable=False)
     tenure_months = Column(Integer, nullable=False)
     loan_purpose = Column(String(50), nullable=False)  # home, personal, education, vehicle, business, medical
@@ -151,3 +153,21 @@ class AuditLog(Base):
     action = Column(String(100), nullable=False)
     resource_id = Column(String(100), nullable=True)
     details = Column(JSON, nullable=True)
+
+
+class StressScenarioConfig(Base):
+    """Versioned administrative configuration for the Financial Stress Simulator.
+
+    Rows are append-only: every authorized update stores a new version so
+    historical calculation configurations can be reconstructed. The newest row
+    is treated as the active configuration.
+    """
+    __tablename__ = "stress_scenario_configs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    config_version = Column(Integer, nullable=False, default=1, index=True)
+    payload = Column(JSON, nullable=False)
+    updated_by = Column(String(100), nullable=False, default="system")
+    updated_at = Column(DateTime, default=utc_now, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    note = Column(Text, nullable=True)

@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from backend.core.config import settings
 from backend.db.session import init_db
-from backend.api.routes import health, intake, officer, websocket, documents, voice, explain, fairness, privacy, auth
+from backend.api.routes import health, intake, officer, websocket, documents, voice, explain, fairness, privacy, auth, stress
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(explain.router, prefix="/api")
     app.include_router(fairness.router, prefix="/api")
     app.include_router(privacy.router, prefix="/api")
+    app.include_router(stress.router, prefix="/api")
     app.include_router(websocket.router, prefix="/api")
 
     # Frontend single-port serving

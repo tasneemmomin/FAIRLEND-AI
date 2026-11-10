@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Literal, Dict, Any
 from pydantic import BaseModel, Field
 
 class ApplicantIntakeRequest(BaseModel):
@@ -11,6 +11,9 @@ class ApplicantIntakeRequest(BaseModel):
     employment_duration_months: int = Field(12, ge=0)
     monthly_income: float = Field(..., gt=0)
     existing_emis: float = Field(0.0, ge=0)
+    # Optional verified monthly household expenses; when omitted the stress
+    # simulator uses a documented estimated-expense assumption instead.
+    monthly_expenses: Optional[float] = Field(None, ge=0)
     requested_amount: float = Field(..., gt=0)
     tenure_months: int = Field(..., ge=6, le=360)
     loan_purpose: str = Field("personal", description="home, personal, education, vehicle, business, medical")
@@ -52,7 +55,9 @@ class ApplicantResponse(BaseModel):
     consistency_score: float
 
 class OfficerDecisionRequest(BaseModel):
-    decision: str = Field(..., description="approve, reject, needs_more_info")
+    decision: Literal["approve", "reject", "needs_more_info"] = Field(
+        ..., description="approve, reject, needs_more_info"
+    )
     reason_code: str = Field(..., min_length=2, description="Standard credit policy reason code")
     officer_notes: Optional[str] = None
     officer_id: str = "officer_demo"

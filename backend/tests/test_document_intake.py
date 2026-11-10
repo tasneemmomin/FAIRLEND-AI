@@ -20,12 +20,21 @@ def setup_database():
     init_db()
 
 def get_applicant_token() -> str:
+    """Register a fresh applicant and return their JWT (applicants self-register)."""
+    email = f"docintake_{uuid.uuid4().hex[:8]}@example.com"
+    reg = client.post("/api/auth/register", json={
+        "full_name": "Document Intake Tester",
+        "email": email,
+        "phone": "9876500000",
+        "password": "DocIntake123"
+    })
+    assert reg.status_code in (200, 201), reg.text
     res = client.post("/api/auth/login", json={
-        "email": "applicant@fairlendai.com",
-        "password": "Applicant@123",
+        "email": email,
+        "password": "DocIntake123",
         "expected_role": "applicant"
     })
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
     return res.json()["access_token"]
 
 def make_salary_pdf(name: str, employer: str, basic: float, hra: float, gross: float, net: float) -> bytes:

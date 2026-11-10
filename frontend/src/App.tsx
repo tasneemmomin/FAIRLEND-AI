@@ -16,7 +16,8 @@ import {
   XCircle, 
   AlertCircle,
   ShieldCheck,
-  FolderOpen
+  FolderOpen,
+  TrendingUp
 } from "lucide-react";
 import { VoiceAssistant } from "./components/VoiceAssistant";
 import { DocumentUploader } from "./components/DocumentUploader";
@@ -26,6 +27,7 @@ import { RecommendationCard } from "./components/RecommendationCard";
 import { OfficerDashboard } from "./components/OfficerDashboard";
 import { LandingPage, PRODUCT_NAME } from "./components/LandingPage";
 import { ApplicantPortalAuth } from "./components/ApplicantPortalAuth";
+import { FinancialStressSimulator } from "./components/FinancialStressSimulator";
 import { ApplicantResponse, ApplicantIntakeForm, SystemHealth, ApplicantUser } from "./types";
 import { getHealth, getCurrentUser, getMyApplications, logoutUser } from "./api";
 import "./landing.css";
@@ -67,7 +69,9 @@ export function App() {
     return null;
   });
 
-  const [applicantMode, setApplicantMode] = useState<"voice" | "typed" | "document">("voice");
+  const [applicantMode, setApplicantMode] = useState<"voice" | "typed" | "document" | "stress">("voice");
+  const [stressAppId, setStressAppId] = useState<string | null>(null);
+  const [showPostSubmitSimulator, setShowPostSubmitSimulator] = useState(false);
   const [submittedResponse, setSubmittedResponse] = useState<ApplicantResponse | null>(null);
   const [voiceFormPrefill, setVoiceFormPrefill] = useState<Partial<ApplicantIntakeForm>>({});
   const [voiceTranscript, setVoiceTranscript] = useState<string>("");
@@ -120,35 +124,10 @@ export function App() {
         setSecurityNotice(null);
       } else if (hash === "#applicant-portal" || hash === "#applicant-auth" || hash === "#login" || hash === "#register") {
         setActivePortal("applicant-auth");
-      } else if (hash === "#applicant-workspace-demo") {
-        const demo: ApplicantUser = {
-          id: "APP-DEMO-01",
-          name: "Pooja Nair",
-          email: "applicant@fairlendai.com",
-          phone: "+91 98765 43210",
-          monthly_income: 72000,
-          employment_type: "salaried",
-          token: "demo_token"
-        };
-        localStorage.setItem("fairlend_applicant_user", JSON.stringify(demo));
-        setApplicantUser(demo);
-        setActivePortal("applicant");
-        setSecurityNotice(null);
-      } else if (hash === "#applicant-document-demo" || hash === "#document-intake-demo") {
-        const demo: ApplicantUser = {
-          id: "APP-DEMO-01",
-          name: "Pooja Nair",
-          email: "applicant@fairlendai.com",
-          phone: "+91 98765 43210",
-          monthly_income: 72000,
-          employment_type: "salaried",
-          token: "demo_token"
-        };
-        localStorage.setItem("fairlend_applicant_user", JSON.stringify(demo));
-        setApplicantUser(demo);
-        setActivePortal("applicant");
-        setApplicantMode("document");
-        setSecurityNotice(null);
+      } else if (hash === "#applicant-workspace-demo" || hash === "#applicant-document-demo" || hash === "#document-intake-demo") {
+        // Legacy demo entry points: there is no demo applicant account anymore.
+        // Any visitor registers or signs in with their own credentials.
+        setActivePortal("applicant-auth");
       } else if (hash === "#applicant") {
         const token = localStorage.getItem("fairlend_applicant_token") || sessionStorage.getItem("fairlend_applicant_token");
         if (!token && !applicantUser) {
@@ -466,6 +445,17 @@ export function App() {
                           {item.recommendation}
                         </span>
                         <span className="block text-[11px] text-[#718096] mt-0.5">FOIR: {item.foir}%</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStressAppId(String(item.id));
+                            setShowHistory(false);
+                            setApplicantMode("stress");
+                          }}
+                          className="mt-1.5 text-[10px] font-bold text-[#28766B] hover:underline inline-flex items-center gap-1"
+                        >
+                          <TrendingUp size={11} /> Stress Analysis
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -475,21 +465,48 @@ export function App() {
 
             {/* Active Submission Result or Intake Form */}
             {submittedResponse ? (
-              <RecommendationCard
-                response={submittedResponse}
-                onReset={() => {
-                  setSubmittedResponse(null);
-                  setVoiceFormPrefill(applicantUser ? {
-                    applicant_name: applicantUser.name,
-                    contact_email: applicantUser.email,
-                    contact_phone: applicantUser.phone,
-                    monthly_income: applicantUser.monthly_income || 65000,
-                    employment_type: applicantUser.employment_type || "salaried"
-                  } : {});
-                  setVoiceTranscript("");
-                  setApplicantMode("voice");
-                }}
-              />
+              <div className="space-y-5">
+                <RecommendationCard
+                  response={submittedResponse}
+                  onReset={() => {
+                    setSubmittedResponse(null);
+                    setVoiceFormPrefill(applicantUser ? {
+                      applicant_name: applicantUser.name,
+                      contact_email: applicantUser.email,
+                      contact_phone: applicantUser.phone,
+                      monthly_income: applicantUser.monthly_income || 65000,
+                      employment_type: applicantUser.employment_type || "salaried"
+                    } : {});
+                    setVoiceTranscript("");
+                    setApplicantMode("voice");
+                  }}
+                />
+
+                {/* Financial Stress Simulator for the just-submitted application */}
+                <div className="bg-white rounded-xl border border-[#E3E8E5] shadow-sm p-4 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-[#28766B]/10 text-[#28766B] flex items-center justify-center">
+                      <TrendingUp size={17} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[#172C3D]">Understand Your Future Financial Position</p>
+                      <p className="text-[11px] text-[#718096]">
+                        Explore how your affordability could change if income falls, expenses rise, or new obligations appear.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPostSubmitSimulator((v) => !v)}
+                    className="px-4 py-2 bg-[#28766B] hover:bg-[#22665c] text-white rounded-lg text-xs font-semibold shadow transition"
+                  >
+                    {showPostSubmitSimulator ? "Hide Simulator" : "Open Financial Stress Simulator"}
+                  </button>
+                </div>
+                {showPostSubmitSimulator && (
+                  <FinancialStressSimulator applicationId={submittedResponse.application_id} role="applicant" />
+                )}
+              </div>
             ) : (
               <div className="space-y-6">
                 {/* Mode Selector */}
@@ -528,6 +545,17 @@ export function App() {
                     >
                       <FolderOpen size={16} aria-hidden="true" /> Document Intake
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setApplicantMode("stress")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                        applicantMode === "stress"
+                          ? "bg-[#28766B] text-white shadow"
+                          : "text-[#718096] hover:bg-[#F7F8F5]"
+                      }`}
+                    >
+                      <TrendingUp size={16} aria-hidden="true" /> Financial Stress Simulator
+                    </button>
                   </div>
 
                   <span className="text-xs text-[#718096] hidden sm:inline">
@@ -536,7 +564,62 @@ export function App() {
                 </div>
 
                 {/* Intake Content Based on Selected Mode */}
-                {applicantMode === "document" ? (
+                {applicantMode === "stress" ? (
+                  (() => {
+                    // Note: submitted applications render elsewhere; this branch
+                    // always has submittedResponse == null (TS-narrowed), so the
+                    // stress mode here runs on prior history records only.
+                    const stressId = stressAppId
+                      || (applicantHistory.length > 0 ? String(applicantHistory[0].id) : null);
+                    if (!stressId) {
+                      return (
+                        <div className="bg-white rounded-xl border border-[#E3E8E5] p-8 text-center space-y-2">
+                          <TrendingUp size={26} className="mx-auto text-[#28766B]" />
+                          <h3 className="font-serif font-bold text-[#172C3D]">Understand Your Future Financial Position</h3>
+                          <p className="text-xs text-[#718096] max-w-md mx-auto">
+                            The Financial Stress Simulator runs on a submitted loan application so it can
+                            analyse your verified income, obligations and proposed EMI under hypothetical
+                            income, expense and obligation scenarios. Please complete and submit an
+                            application first.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setApplicantMode("typed")}
+                            className="px-4 py-2 bg-[#28766B] text-white rounded-lg text-xs font-semibold"
+                          >
+                            Start an Application
+                          </button>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-white rounded-xl border border-[#E3E8E5] p-3 flex items-center gap-2 flex-wrap text-xs">
+                          <span className="font-bold text-[#172C3D] uppercase tracking-wide text-[10px]">
+                            Understand Your Future Financial Position
+                          </span>
+                          <span className="text-[#718096]">Analysing Application ID:</span>
+                          <code className="bg-[#F1F4F2] px-2 py-0.5 rounded text-[10px]">{stressId}</code>
+                          {applicantHistory.length > 1 && (
+                            <select
+                              value={stressAppId || String(applicantHistory[0].id)}
+                              onChange={(e) => setStressAppId(e.target.value)}
+                              className="ml-auto border border-[#E3E8E5] rounded-lg px-2 py-1 text-xs"
+                              aria-label="Choose application for stress analysis"
+                            >
+                              {applicantHistory.map((item, idx) => (
+                                <option key={idx} value={String(item.id)}>
+                                  {String(item.id).slice(0, 8)} — {item.name} ({item.date})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                        <FinancialStressSimulator applicationId={stressId} role="applicant" />
+                      </div>
+                    );
+                  })()
+                ) : applicantMode === "document" ? (
                   <div className="max-w-4xl mx-auto">
                     <DocumentIntake
                       applicantUser={applicantUser}

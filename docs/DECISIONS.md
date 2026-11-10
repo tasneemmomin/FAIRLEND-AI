@@ -41,3 +41,14 @@ This document records the architectural and engineering decisions made during th
 - **Context**: Managing separate ports for Vite frontend and FastAPI backend complicates local execution on Windows.
 - **Decision**: The React frontend is compiled to `frontend/dist` and mounted as static assets inside FastAPI. The entire web application (Applicant Portal, Officer Dashboard, WebSocket, REST API) runs on a single port (default `8000`).
 - **Consequences**: Double-clicking `run.bat` launches the complete full-stack system from a single URL (`http://127.0.0.1:8000`).
+
+## ADR 08: Financial Stress Early-Warning & Future Scenario Intelligence
+- **Context**: The existing platform evaluates only an applicant's *current* affordability. The loan officer and applicant had no transparent way to explore how affordability could change if income falls, expenses rise, or new obligations appear.
+- **Decision**: Add a modular `financial_stress` service (deterministic, versioned calculation engine) with:
+  1. A separate simulation engine (`calculations.py`, `scenarios.py`, `projections.py`, `stress_indicators.py`, `explanations.py`) that mirrors documented arithmetic — Disposable Income, Remaining Balance, Total EMI Burden, FOIR — with safe zero/missing-income handling.
+  2. Scenarios A–F (current condition, income reduction 5–20%, expense increase 5–20%, additional obligations, combined shocks, user-customized) driven by admin-configurable, append-only versioned configuration (`StressScenarioConfig` table).
+  3. A strictly assumption-based 12-month cash-flow projection (explicitly NOT a forecast; revisit only if validated historical data becomes available).
+  4. Template-based explanations (no LLM in the calculation path), and worst-case summaries.
+  5. Role-guarded APIs under `/api/stress/*`: applicants access only their own applications; officers access all; config writes officer-only; report exports and officer assessments are audit-logged.
+- **Consequences**: Scenario simulation is fully isolated — hypothetical values NEVER modify the `applications` table. Indicators are clearly labelled "under assumptions" and are not statistically validated default probabilities. Officer stress analysis is advisory only; the human officer remains the sole decision-maker.
+- **Audit fixes applied in the same pass**: `/api/explain/{id}` now enforces authentication + ownership (previously unauthenticated); officer decision payloads are now enum-validated (`approve|reject|needs_more_info`) so invalid values can no longer corrupt human-in-the-loop training labels.

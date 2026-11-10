@@ -1,12 +1,19 @@
-import { 
-  ApplicantIntakeForm, 
-  ApplicantResponse, 
-  OfficerAppSummary, 
-  SystemHealth, 
+import {
+  ApplicantIntakeForm,
+  ApplicantResponse,
+  OfficerAppSummary,
+  SystemHealth,
   FairnessMetrics,
   AuthUser,
   AuthResponse,
-  ApplicantAppHistoryItem
+  ApplicantAppHistoryItem,
+  StressBaselineResponse,
+  StressFullResponse,
+  StressScenarioResult,
+  StressProjectionResponse,
+  StressCustomRequest,
+  StressProjectionRequest,
+  StressReportResponse
 } from "./types";
 
 const BASE_URL = window.location.origin.includes("localhost:5173") 
@@ -241,25 +248,34 @@ export async function deletePrivacyData(id: string): Promise<any> {
   return res.json();
 }
 
-export async function initVoice(): Promise<any> {
-  const res = await fetch(`${BASE_URL}/voice/init`, { method: "POST" });
+export async function initVoice(language?: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/voice/init`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ language: language || "en-IN" })
+  });
   if (!res.ok) throw new Error("Failed to initialize voice session");
   return res.json();
 }
 
-export async function processVoiceTurn(userUtterance: string, sessionState?: any): Promise<any> {
+export async function processVoiceTurn(userUtterance: string, sessionState?: any, language?: string): Promise<any> {
   const res = await fetch(`${BASE_URL}/voice/turn`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_utterance: userUtterance, session_state: sessionState })
+    body: JSON.stringify({
+      user_utterance: userUtterance,
+      session_state: sessionState,
+      language: language || "en-IN"
+    })
   });
   if (!res.ok) throw new Error("Turn failed");
   return res.json();
 }
 
-export async function transcribeAudioBlob(blob: Blob): Promise<{ text: string; language: string; confidence: number; error?: string }> {
+export async function transcribeAudioBlob(blob: Blob, language: string = "en-IN"): Promise<{ text: string; language: string; confidence: number; error?: string }> {
   const formData = new FormData();
   formData.append("audio", blob, "voice.wav");
+  formData.append("language", language); // selected-language enforcement for faster-whisper
   const res = await fetch(`${BASE_URL}/voice/transcribe`, {
     method: "POST",
     body: formData
@@ -295,5 +311,79 @@ export async function analyzeIntakeDocuments(documents: any[], applicantProfile?
     const err = await res.json().catch(() => ({ detail: "Analysis failed" }));
     throw new Error(err.detail || "Analysis failed");
   }
+  return res.json();
+}
+
+// ==========================================
+// Financial Stress Simulator APIs
+// ==========================================
+
+export type StressRole = "applicant" | "officer";
+
+export async function getStressBaseline(applicationId: string, role: StressRole = "applicant"): Promise<StressBaselineResponse> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/baseline`, {
+    headers: { ...authHeaders(role) }
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to load baseline financial position");
+  return res.json();
+}
+
+export async function getStressScenarios(applicationId: string, role: StressRole = "applicant"): Promise<StressFullResponse> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/scenarios`, {
+    headers: { ...authHeaders(role) }
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to load stress scenarios");
+  return res.json();
+}
+
+export async function runStressCustomScenario(
+  applicationId: string,
+  payload: StressCustomRequest,
+  role: StressRole = "applicant"
+): Promise<StressScenarioResult> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/custom`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(role) },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Custom scenario failed");
+  return res.json();
+}
+
+export async function runStressProjection(
+  applicationId: string,
+  payload: StressProjectionRequest,
+  role: StressRole = "applicant"
+): Promise<StressProjectionResponse> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/projection`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(role) },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Projection failed");
+  return res.json();
+}
+
+export async function getStressReport(applicationId: string, role: StressRole = "applicant"): Promise<StressReportResponse> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/report`, {
+    headers: { ...authHeaders(role) }
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Report export failed");
+  return res.json();
+}
+
+export async function recordStressAssessment(applicationId: string, assessmentNote: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/stress/applications/${applicationId}/assessment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders("officer") },
+    body: JSON.stringify({ assessment_note: assessmentNote })
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to record assessment");
+  return res.json();
+}
+
+export async function getStressConfig(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/stress/config`);
+  if (!res.ok) throw new Error("Config requires authentication");
   return res.json();
 }

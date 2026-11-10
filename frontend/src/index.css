@@ -1,7 +1,104 @@
+/* ============================================================================
+   FairLendAI Design System v2.0 — single token source
+   Type: IBM Plex Sans (UI) · IBM Plex Sans Devanagari (हिन्दी/मराठी)
+         IBM Plex Mono (financial figures, IDs, codes)
+   Palette: institutional navy + teal on warm paper (WCAG AA)
+   ========================================================================== */
+@import "./styles/fonts.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand surfaces */
+  --fla-ink: #0B1F2A;
+  --fla-navy-900: #0F2231;
+  --fla-navy-800: #173247;
+  --fla-teal-700: #0C655C;
+  --fla-teal-600: #0E766B;
+  --fla-teal-500: #148A7F;
+  --fla-teal-100: #E3F2EF;
+
+  /* Neutrals */
+  --fla-paper: #F6F7F4;
+  --fla-card: #FFFFFF;
+  --fla-border: #E4E8E4;
+  --fla-text: #23313C;
+  --fla-text-secondary: #5C6B78;
+  --fla-text-muted: #8B98A4;
+
+  /* Semantic (AA on both paper and navy surfaces) */
+  --fla-green: #0B734B;   --fla-green-bg: #E8F6EE;   --fla-green-border: #B7E2C6;
+  --fla-amber: #92600C;   --fla-amber-bg: #FBF3E4;   --fla-amber-border: #EAD3A2;
+  --fla-red: #B23A3A;     --fla-red-bg: #FBEDEC;     --fla-red-border: #F0C4C2;
+
+  /* Typography */
+  --fla-font-ui: "IBM Plex Sans", "IBM Plex Sans Devanagari", -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --fla-font-deva: "IBM Plex Sans Devanagari", "IBM Plex Sans", sans-serif;
+  --fla-font-figure: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Spatial rhythm (8px system) */
+  --fla-radius-sm: 6px;
+  --fla-radius-md: 10px;
+  --fla-radius-lg: 14px;
+  --fla-shadow-card: 0 2px 8px rgba(11, 31, 42, 0.05), 0 1px 2px rgba(11, 31, 42, 0.03);
+  --fla-shadow-hover: 0 10px 24px -4px rgba(11, 31, 42, 0.08), 0 4px 8px -2px rgba(11, 31, 42, 0.04);
+  --fla-transition: 150ms ease;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   padding: 0;
-  background-color: #f1f5f9;
-  color: #0f172a;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: var(--fla-paper);
+  color: var(--fla-text);
+  font-family: var(--fla-font-ui);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Financial figures and identifiers: tabular mono, aligned in tables */
+.tabular, .font-figures {
+  font-family: var(--fla-font-figure);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Every table cell aligns its digits (officer queue, stress scenarios, matrices)
+   so ₹ columns and percentages never jitter as values update. */
+table {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Devanagari passages: correct matra line-height and no fake italic */
+.deva {
+  font-family: var(--fla-font-deva);
+  line-height: 1.8;
+  font-style: normal;
+}
+
+/* Consistent focus treatment across light and dark surfaces */
+:focus-visible {
+  outline: 2px solid var(--fla-teal-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Discreet, theme-aware scrollbar */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(92, 107, 120, 0.35); border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

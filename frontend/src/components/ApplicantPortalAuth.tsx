@@ -7,14 +7,11 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight, 
-  Sparkles, 
   ShieldCheck, 
   CheckCircle2, 
   AlertTriangle,
   HelpCircle,
-  X,
-  Copy,
-  Check
+  X
 } from "lucide-react";
 import { loginUser, registerApplicant } from "../api";
 import { ApplicantUser } from "../types";
@@ -55,36 +52,6 @@ export const ApplicantPortalAuth: React.FC<ApplicantPortalAuthProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showForgotModal, setShowForgotModal] = useState(false);
-  const [copiedDemo, setCopiedDemo] = useState(false);
-
-  // 1-Click Demo Login
-  const handleQuickDemoLogin = async () => {
-    setLoginEmail("applicant@fairlendai.com");
-    setLoginPassword("Applicant@123");
-    setErrorMessage(null);
-    setIsSubmitting(true);
-    try {
-      const res = await loginUser("applicant@fairlendai.com", "Applicant@123", "applicant");
-      const storage = rememberMe ? localStorage : sessionStorage;
-      storage.setItem("fairlend_applicant_token", res.access_token);
-      
-      const appUser: ApplicantUser = {
-        id: res.user.id,
-        name: res.user.full_name,
-        email: res.user.email,
-        phone: res.user.phone || "+91 98765 43210",
-        monthly_income: 65000,
-        employment_type: "salaried",
-        token: res.access_token
-      };
-      storage.setItem("fairlend_applicant_user", JSON.stringify(appUser));
-      onSuccess(appUser);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to authenticate demo applicant with backend.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Handle Login submission
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -214,12 +181,12 @@ export const ApplicantPortalAuth: React.FC<ApplicantPortalAuthProps> = ({
             Applicant Portal
           </h2>
           <p className="text-xs text-[#A0B2C0] max-w-xs mx-auto">
-            Secure, biometric-grade authentication for borrowers & loan applicants.
+            Secure sign-in and registration for borrowers & loan applicants.
           </p>
 
           <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-[#7FE0D2]">
             <ShieldCheck size={14} />
-            <span>256-bit SSL • DPDP Act 2023 Compliant</span>
+            <span>Encrypted in transit &amp; at rest • DPDP Act 2023 Compliant</span>
           </div>
         </div>
 
@@ -278,45 +245,6 @@ export const ApplicantPortalAuth: React.FC<ApplicantPortalAuthProps> = ({
               ============================================================= */}
           {activeTab === "login" ? (
             <div className="space-y-4">
-              {/* Demo Credentials Box */}
-              <div className="bg-[#EBF5F3] border border-[#BBF7D0] p-3.5 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#166534] flex items-center gap-1.5">
-                    <Sparkles size={14} /> Quick Demo Applicant Account
-                  </span>
-                  <span className="text-[10px] bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC] px-2 py-0.5 rounded font-bold uppercase">
-                    Pooja Nair Profile
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] bg-white/80 p-2.5 rounded-lg border border-[#A7F3D0]">
-                  <div>
-                    <span className="text-[#718096] block text-[10px]">Email:</span>
-                    <strong className="text-[#172C3D] select-all">applicant@fairlendai.com</strong>
-                  </div>
-                  <div>
-                    <span className="text-[#718096] block text-[10px]">Password:</span>
-                    <strong className="text-[#172C3D] select-all">Applicant@123</strong>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleQuickDemoLogin}
-                  className="w-full py-2 bg-[#28766B] hover:bg-[#1E5C53] text-white font-semibold rounded-lg text-xs shadow-sm transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  <Sparkles size={14} /> ⚡ 1-Click Sign In (Demo Profile)
-                </button>
-              </div>
-
-              <div className="relative text-center my-3">
-                <hr className="border-[#E3E8E5]" />
-                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[11px] text-[#718096]">
-                  or sign in with your email
-                </span>
-              </div>
-
               {/* Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-xs">
                 <div>
@@ -578,7 +506,7 @@ export const ApplicantPortalAuth: React.FC<ApplicantPortalAuthProps> = ({
             <div className="bg-[#F7F8F5] p-3 rounded-xl border border-[#E3E8E5] text-xs text-[#172C3D] space-y-1">
               <strong>Need immediate access?</strong>
               <p className="text-[11px] text-[#718096]">
-                You can create a new account in 30 seconds using the <strong>New Registration</strong> tab, or use the instant 1-Click Demo Profile.
+                You can create a new account in 30 seconds using the <strong>New Registration</strong> tab.
               </p>
             </div>
             <button
